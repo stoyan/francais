@@ -4,6 +4,23 @@ import './App.css';
 import francais from '../public/francais/json/francais.json';
 
 const iOS = !!navigator.platform && /iPad|iPhone|iPod/.test(navigator.platform);
+let webvoices = null;
+if (
+  'SpeechSynthesisUtterance' in window &&
+  'speechSynthesis' in window
+) {
+  if ('onvoiceschanged' in speechSynthesis) {
+    speechSynthesis.onvoiceschanged = () => {
+      webvoices = getVoices();
+    }
+  } else if (speechSynthesis.getVoices) {
+      webvoices = getVoices();
+  }
+}
+
+function getVoices() {
+  return speechSynthesis.getVoices().filter(v => v.lang === 'fr-FR' && v.localService);
+}
 
 let term;
 
@@ -29,7 +46,10 @@ function getAnswer(i) {
   );
 }
 
-function getAudio() {  
+function getAudio() {
+  if (webvoices && navigator.onLine === false) {
+    return [];
+  }
   const word = justLetters(term[0]);
   return [
     new Audio(`francais/voices/Amelie/${word}.mp3`),
@@ -87,7 +107,7 @@ class App extends Component {
     });
   }
   
-  pause() {    
+  pause() {
     for (const note of this.state.audio) {
       note.pause();
       note.currentTime = 0;
@@ -98,7 +118,13 @@ class App extends Component {
   say() {
     this.pause();
     this.setState({pause: false});
-    this.state.audio[Math.floor(Math.random() * this.state.audio.length)].play();    
+    if (webvoices && navigator.onLine === false) {
+      const u = new SpeechSynthesisUtterance(term[0]);
+      u.voice = webvoices[Math.floor(Math.random() * webvoices.length)];
+      speechSynthesis.speak(u);
+    } else {
+      this.state.audio[Math.floor(Math.random() * this.state.audio.length)].play();  
+    }
   }
     
   render() {
